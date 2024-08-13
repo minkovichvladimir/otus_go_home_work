@@ -41,8 +41,6 @@
 
 #### Зачёт от 7 баллов
 
-#### Зачёт от 7 баллов
-
 ### Подсказки
 - https://golang.org/ref/spec#String_literals
 - `strings.Builder`
