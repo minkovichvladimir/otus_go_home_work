@@ -21,8 +21,7 @@ func Top10(source string) []string {
 	return sorted
 }
 
-func normalizeWords(words []string) []string {
-	var result []string
+func normalizeWords(words []string) (result []string) {
 	for _, word := range words {
 		if word == "-" {
 			continue
