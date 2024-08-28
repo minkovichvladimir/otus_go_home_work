@@ -17,6 +17,11 @@ type lruCache struct {
 	mux      sync.Mutex
 }
 
+type KeyValue struct {
+	Key   Key
+	Value interface{}
+}
+
 func NewCache(capacity int) Cache {
 	return &lruCache{
 		capacity: capacity,
@@ -32,17 +37,17 @@ func (lc *lruCache) Set(key Key, value interface{}) bool {
 	item, ok := lc.items[key]
 	if !ok {
 		if lc.queue.Len() == lc.capacity {
-			for k, listItem := range lc.items {
-				if listItem == lc.queue.Back() {
-					delete(lc.items, k)
-					break
-				}
+			if kv, kvOk := lc.queue.Back().Value.(KeyValue); kvOk {
+				delete(lc.items, kv.Key)
 			}
 
 			lc.queue.Remove(lc.queue.Back())
 		}
 
-		lc.queue.PushFront(value)
+		lc.queue.PushFront(KeyValue{
+			Key:   key,
+			Value: value,
+		})
 		lc.items[key] = lc.queue.Front()
 	} else {
 		lc.queue.MoveToFront(item)
@@ -61,6 +66,10 @@ func (lc *lruCache) Get(key Key) (interface{}, bool) {
 		return nil, false
 	}
 	lc.queue.MoveToFront(item)
+
+	if kv, kvOk := item.Value.(KeyValue); kvOk {
+		return kv.Value, true
+	}
 
 	return item.Value, true
 }
