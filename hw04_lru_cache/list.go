@@ -19,7 +19,9 @@ type ListItem struct {
 type list struct {
 	len   int
 	first *ListItem
-	last  *ListItem // Можно и без этого элемента, но тогда при работе с последним элементом придется пробегать весь список, сложность будет O(n) вместо O(1)
+	// Можно и без этого элемента, но тогда при работе с последним элементом придется
+	// пробегать весь список, сложность будет O(n) вместо O(1)
+	last *ListItem
 }
 
 func NewList() List {
@@ -78,13 +80,14 @@ func (l *list) PushBack(v interface{}) *ListItem {
 }
 
 func (l *list) Remove(i *ListItem) {
-	if l.first == i {
+	switch {
+	case l.first == i:
 		l.first = l.first.Next
 		l.first.Prev = nil
-	} else if l.last == i {
+	case l.last == i:
 		l.last = l.last.Prev
 		l.last.Next = nil
-	} else {
+	default:
 		i.Prev.Next = i.Next
 		i.Next.Prev = i.Prev
 	}
@@ -93,12 +96,13 @@ func (l *list) Remove(i *ListItem) {
 }
 
 func (l *list) MoveToFront(i *ListItem) {
-	if l.first == i {
+	switch {
+	case l.first == i:
 		return
-	} else if l.last == i {
+	case l.last == i:
 		l.last = l.last.Prev
 		l.last.Next = nil
-	} else {
+	default:
 		i.Prev.Next = i.Next
 		i.Next.Prev = i.Prev
 	}

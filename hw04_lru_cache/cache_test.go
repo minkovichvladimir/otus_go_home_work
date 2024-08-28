@@ -73,15 +73,15 @@ func TestCache(t *testing.T) {
 	t.Run("ejection logic", func(t *testing.T) {
 		c := NewCache(3)
 
-		c.Set("a", 1) //[a]
-		c.Set("b", 2) //[b a]
-		c.Set("c", 3) //[c b a]
-		c.Set("d", 4) //[d c b]
+		c.Set("a", 1) // [a]
+		c.Set("b", 2) // [b a]
+		c.Set("c", 3) // [c b a]
+		c.Set("d", 4) // [d c b]
 
 		_, aIn := c.Get("a")
 		require.False(t, aIn)
 
-		c.Set("f", 5) //[f d c]
+		c.Set("f", 5) // [f d c]
 
 		_, bIn := c.Get("b")
 		require.False(t, bIn)
@@ -90,26 +90,26 @@ func TestCache(t *testing.T) {
 	t.Run("ejection rare elements logic", func(t *testing.T) {
 		c := NewCache(3)
 
-		c.Set("a", 1) //[a]
-		c.Set("c", 3) //[c a]
-		c.Set("b", 2) //[b c a]
+		c.Set("a", 1) // [a]
+		c.Set("c", 3) // [c a]
+		c.Set("b", 2) // [b c a]
 
-		c.Get("a") //[a b c]
+		c.Get("a") // [a b c]
 
-		//change value
-		c.Set("c", 12) //[c a b]
+		// change value
+		c.Set("c", 12) // [c a b]
 		_, cIn := c.Get("c")
 		require.True(t, cIn)
 
-		//new item
-		c.Set("d", 4) //[d c a]
+		// new item
+		c.Set("d", 4) // [d c a]
 
 		_, bIn := c.Get("b")
 		require.False(t, bIn)
 	})
 }
 
-func TestCacheMultithreading(t *testing.T) {
+func TestCacheMultithreading(_ *testing.T) {
 	c := NewCache(10)
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
