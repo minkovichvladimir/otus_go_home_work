@@ -32,17 +32,13 @@ func (lc *lruCache) Set(key Key, value interface{}) bool {
 	item, ok := lc.items[key]
 	if !ok {
 		if lc.queue.Len() == lc.capacity {
-			for k, listItem := range lc.items {
-				if listItem == lc.queue.Back() {
-					delete(lc.items, k)
-					break
-				}
-			}
-
+			delete(lc.items, lc.queue.Back().Key)
 			lc.queue.Remove(lc.queue.Back())
 		}
 
-		lc.queue.PushFront(value)
+		ni := lc.queue.PushFront(value)
+		ni.Key = key
+
 		lc.items[key] = lc.queue.Front()
 	} else {
 		lc.queue.MoveToFront(item)
