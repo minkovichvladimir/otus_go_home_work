@@ -50,13 +50,66 @@ func TestCache(t *testing.T) {
 	})
 
 	t.Run("purge logic", func(t *testing.T) {
-		// Write me
+		c := NewCache(2)
+
+		c.Set("a", 1)
+		c.Set("b", 2)
+
+		a, _ := c.Get("a")
+		b, _ := c.Get("b")
+
+		require.Equal(t, 1, a)
+		require.Equal(t, 2, b)
+
+		c.Clear()
+
+		_, aIn := c.Get("a")
+		_, bIn := c.Get("b")
+
+		require.False(t, aIn)
+		require.False(t, bIn)
+	})
+
+	t.Run("ejection logic", func(t *testing.T) {
+		c := NewCache(3)
+
+		c.Set("a", 1) // [a]
+		c.Set("b", 2) // [b a]
+		c.Set("c", 3) // [c b a]
+		c.Set("d", 4) // [d c b]
+
+		_, aIn := c.Get("a")
+		require.False(t, aIn)
+
+		c.Set("f", 5) // [f d c]
+
+		_, bIn := c.Get("b")
+		require.False(t, bIn)
+	})
+
+	t.Run("ejection rare elements logic", func(t *testing.T) {
+		c := NewCache(3)
+
+		c.Set("a", 1) // [a]
+		c.Set("c", 3) // [c a]
+		c.Set("b", 2) // [b c a]
+
+		c.Get("a") // [a b c]
+
+		// change value
+		c.Set("c", 12) // [c a b]
+		_, cIn := c.Get("c")
+		require.True(t, cIn)
+
+		// new item
+		c.Set("d", 4) // [d c a]
+
+		_, bIn := c.Get("b")
+		require.False(t, bIn)
 	})
 }
 
-func TestCacheMultithreading(t *testing.T) {
-	t.Skip() // Remove me if task with asterisk completed.
-
+func TestCacheMultithreading(_ *testing.T) {
 	c := NewCache(10)
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
