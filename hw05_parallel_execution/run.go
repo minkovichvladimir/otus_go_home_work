@@ -11,47 +11,66 @@ type Task func() error
 
 // Run starts tasks in n goroutines and stops its work when receiving m errors from tasks.
 func Run(tasks []Task, n, m int) error {
-	if m <= 0 {
-		m = 0 // all tasks should be done well
+	if m < 0 {
+		return ErrErrorsLimitExceeded
 	}
 
-	at := &AtomicTasks{tasks: tasks}
-	wg := &sync.WaitGroup{}
+	tasksChan := make(chan Task, len(tasks))
+	errChan := make(chan error, n)
+	doneChan := make(chan struct{})
 
-	ch := make(chan error, n)
-	defer close(ch)
+	wg := sync.WaitGroup{}
 
 	for i := 0; i < n; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-
 			for {
-				if m == 0 && at.GetErrorCount() > m {
-					ch <- ErrErrorsLimitExceeded
+				select {
+				case <-doneChan:
+					// закрывается в горутине подсчитывающей кол-во ошибок
 					return
+				default:
 				}
 
-				if m != 0 && at.GetErrorCount() >= m {
-					ch <- ErrErrorsLimitExceeded
+				task, ok := <-tasksChan
+				if !ok {
+					close(doneChan)
 					return
 				}
-
-				if err := at.Consume(); err != nil {
-					ch <- err
-					return
+				if err := task(); err != nil {
+					errChan <- err
 				}
 			}
 		}()
 	}
-	wg.Wait()
 
-	for i := 0; i < n; i++ {
-		if err := <-ch; err != nil {
-			if !errors.Is(err, ErrTaskLimitExceeded) {
-				return err
+	var errCount int
+	go func() {
+		for {
+			select {
+			case <-errChan:
+				errCount++
+				if errCount >= m {
+					close(doneChan)
+					return
+				}
+			case <-doneChan:
+				// закрывается в горутинах воркерах в случае если из канала с тасками все вычитали
+				return
 			}
 		}
+	}()
+
+	for _, t := range tasks {
+		tasksChan <- t
+	}
+	close(tasksChan)
+
+	wg.Wait()
+
+	if errCount >= m && m > 0 {
+		return ErrErrorsLimitExceeded
 	}
 
 	return nil
