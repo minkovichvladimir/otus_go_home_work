@@ -2,7 +2,6 @@ package hw05parallelexecution
 
 import (
 	"errors"
-	"sync"
 )
 
 var ErrErrorsLimitExceeded = errors.New("errors limit exceeded")
@@ -11,48 +10,73 @@ type Task func() error
 
 // Run starts tasks in n goroutines and stops its work when receiving m errors from tasks.
 func Run(tasks []Task, n, m int) error {
-	if m <= 0 {
-		m = 0 // all tasks should be done well
+	if len(tasks) == 0 || n < 0 {
+		return nil
 	}
 
-	at := &AtomicTasks{tasks: tasks}
-	wg := &sync.WaitGroup{}
+	if m < 0 {
+		return ErrErrorsLimitExceeded
+	}
 
-	ch := make(chan error, n)
-	defer close(ch)
+	tasksChan := make(chan Task, len(tasks))
+	errChan := make(chan error, n)
+	successChan := make(chan struct{}, n)
+
+	doneChan := make(chan struct{})
 
 	for i := 0; i < n; i++ {
-		wg.Add(1)
 		go func() {
-			defer wg.Done()
-
 			for {
-				if m == 0 && at.GetErrorCount() > m {
-					ch <- ErrErrorsLimitExceeded
+				select {
+				case <-doneChan:
 					return
+				default:
 				}
 
-				if m != 0 && at.GetErrorCount() >= m {
-					ch <- ErrErrorsLimitExceeded
+				task, ok := <-tasksChan
+				if !ok {
 					return
 				}
-
-				if err := at.Consume(); err != nil {
-					ch <- err
-					return
+				if err := task(); err != nil {
+					errChan <- err
+				} else {
+					successChan <- struct{}{}
 				}
 			}
 		}()
 	}
-	wg.Wait()
 
-	for i := 0; i < n; i++ {
-		if err := <-ch; err != nil {
-			if !errors.Is(err, ErrTaskLimitExceeded) {
-				return err
+	var errCount, successCount int
+	go func() {
+		for {
+			select {
+			case <-errChan:
+				errCount++
+				if errCount >= m || errCount+successCount == len(tasks) {
+					close(doneChan)
+					return
+				}
+			case <-successChan:
+				successCount++
+				if errCount+successCount == len(tasks) {
+					close(doneChan)
+					return
+				}
 			}
 		}
+	}()
+
+	for _, t := range tasks {
+		tasksChan <- t
+	}
+	close(tasksChan)
+
+	<-doneChan
+
+	if errCount >= m && m > 0 {
+		return ErrErrorsLimitExceeded
+	} else {
+		return nil
 	}
 
-	return nil
 }
