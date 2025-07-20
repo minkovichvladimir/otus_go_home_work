@@ -11,10 +11,6 @@ type Task func() error
 
 // Run starts tasks in n goroutines and stops its work when receiving m errors from tasks.
 func Run(tasks []Task, n, m int) error {
-	if len(tasks) == 0 || n < 0 {
-		return nil
-	}
-
 	if m < 0 {
 		return ErrErrorsLimitExceeded
 	}
@@ -32,7 +28,7 @@ func Run(tasks []Task, n, m int) error {
 			for {
 				select {
 				case <-doneChan:
-					//закрывается в горутине подсчитывающей кол-во ошибок
+					// закрывается в горутине подсчитывающей кол-во ошибок
 					return
 				default:
 				}
@@ -60,7 +56,7 @@ func Run(tasks []Task, n, m int) error {
 					return
 				}
 			case <-doneChan:
-				//закрывается в горутинах воркерах в случае если из канала с тасками все вычитали
+				// закрывается в горутинах воркерах в случае если из канала с тасками все вычитали
 				return
 			}
 		}
