@@ -2,6 +2,7 @@ package hw05parallelexecution
 
 import (
 	"errors"
+	"sync"
 )
 
 var ErrErrorsLimitExceeded = errors.New("errors limit exceeded")
@@ -20,48 +21,47 @@ func Run(tasks []Task, n, m int) error {
 
 	tasksChan := make(chan Task, len(tasks))
 	errChan := make(chan error, n)
-	successChan := make(chan struct{}, n)
-
 	doneChan := make(chan struct{})
 
+	wg := sync.WaitGroup{}
+
 	for i := 0; i < n; i++ {
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			for {
 				select {
 				case <-doneChan:
+					//закрывается в горутине подсчитывающей кол-во ошибок
 					return
 				default:
 				}
 
 				task, ok := <-tasksChan
 				if !ok {
+					close(doneChan)
 					return
 				}
 				if err := task(); err != nil {
 					errChan <- err
-				} else {
-					successChan <- struct{}{}
 				}
 			}
 		}()
 	}
 
-	var errCount, successCount int
+	var errCount int
 	go func() {
 		for {
 			select {
 			case <-errChan:
 				errCount++
-				if errCount >= m || errCount+successCount == len(tasks) {
+				if errCount >= m {
 					close(doneChan)
 					return
 				}
-			case <-successChan:
-				successCount++
-				if errCount+successCount == len(tasks) {
-					close(doneChan)
-					return
-				}
+			case <-doneChan:
+				//закрывается в горутинах воркерах в случае если из канала с тасками все вычитали
+				return
 			}
 		}
 	}()
@@ -71,12 +71,11 @@ func Run(tasks []Task, n, m int) error {
 	}
 	close(tasksChan)
 
-	<-doneChan
+	wg.Wait()
 
 	if errCount >= m && m > 0 {
 		return ErrErrorsLimitExceeded
-	} else {
-		return nil
 	}
 
+	return nil
 }
